@@ -49,7 +49,6 @@ class NhsScotlandGBSpider(Spider):
         "opticians": Categories.SHOP_OPTICIAN,
         "pharmacies": Categories.PHARMACY,
     }
-    requires_proxy = True
     custom_settings = {"ROBOTSTXT_OBEY": False}
 
     async def start(self) -> AsyncIterator[Request]:
