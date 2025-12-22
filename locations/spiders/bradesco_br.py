@@ -12,7 +12,6 @@ class BradescoBRSpider(scrapy.Spider):
         "https://wspf.bradesco.com.br/wsAtendimentoInstitucional/Site/Request.aspx?callback=rdaCallback&canal_id=1",
         "https://wspf.bradesco.com.br/wsAtendimentoInstitucional/Site/Request.aspx?callback=rdaCallback&canal_id=2",
     ]
-    requires_proxy = True
 
     def parse(self, response):
         if "canal_id=2" in response.url:
