@@ -17,7 +17,6 @@ class MacysSpider(CrawlSpider, StructuredDataSpider):
     ]
     wanted_types = ["Store"]
     custom_settings = {"USER_AGENT": BROWSER_DEFAULT}
-    requires_proxy = True
 
     def post_process_item(self, item, response, ld_data, **kwargs):
         item["name"] = None
