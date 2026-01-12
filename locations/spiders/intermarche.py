@@ -1,6 +1,6 @@
 from typing import Any, AsyncIterator, Iterable
 
-from scrapy import Spider
+from scrapy import Request, Spider
 from scrapy.http import FormRequest, JsonRequest, Response
 
 from locations.categories import Categories, Extras, apply_category, apply_yes_no
@@ -120,20 +120,23 @@ class IntermarcheSpider(Spider):
                 apply_category(Categories.SHOP_E_CIGARETTE, item)
                 item["located_in"], item["located_in_wikidata"] = self.INTERMARCHE.values()
 
+            # Handle fuel stations separately
+            if any(s["code"] == "ess" for s in place["ecommerce"]["services"]):
+                slug = f'{item["ref"]}/{item["city"].replace(" ", "-")}-{item["postcode"]}/infos-pratiques'
+                detail_url = f"https://www.intermarche.com/magasins/{slug}"
+
+                yield Request(
+                    url=detail_url,
+                    callback=self.parse_fuel_station,
+                    cb_kwargs={"item": item}
+                )
+
+            # Other accessory units
             yield from self.parse_accessory_units(place, item)
 
             yield item
 
     def parse_accessory_units(self, place: dict, item: Feature) -> Iterable[Feature]:
-        if any(s["code"] == "ess" for s in place["ecommerce"]["services"]):
-            fuel = item.deepcopy()
-            fuel["ref"] += "_fuel"
-            fuel.update(self.INTERMARCHE)
-
-            apply_category(Categories.FUEL_STATION, fuel)
-
-            yield fuel
-
         if any(s["code"] == "lav" for s in place["ecommerce"]["services"]):
             car_wash = item.deepcopy()
             car_wash["ref"] += "_carwash"
@@ -142,3 +145,47 @@ class IntermarcheSpider(Spider):
             apply_category(Categories.CAR_WASH, car_wash)
 
             yield car_wash
+
+    def parse_fuel_station(self, response: Response, **kwargs) -> Iterable[Feature]:
+        import json
+        import re
+
+        item = kwargs.get("item")
+        self.logger.info(f"parse_fuel_station called for {item['ref']} from {response.url} (status: {response.status})")
+
+        # Extract Next.js data from HTML
+        match = re.search(r'"gasStationInformation":\{[^}]*"address":\{[^}]+\}', response.text)
+        if match:
+            self.logger.info(f"Found gasStationInformation for {item['ref']}")
+
+            # Extract the full gasStationInformation object
+            json_text = "{" + match.group() + "}"
+            # Find the end of the object by counting braces
+            brace_count = 0
+            end_pos = 0
+            for i, char in enumerate(json_text):
+                if char == "{":
+                    brace_count += 1
+                elif char == "}":
+                    brace_count -= 1
+                    if brace_count == 0:
+                        end_pos = i + 1
+                        break
+
+            json_text = json_text[:end_pos]
+            data = json.loads(json_text)
+
+            fuel = item.deepcopy()
+            fuel["opening_hours"] = None
+            fuel["ref"] += "_fuel"
+            fuel.update(self.INTERMARCHE)
+
+            # Use fuel station coordinates if available
+            if "gasStationInformation" in data and "address" in data["gasStationInformation"]:
+                fuel_address = data["gasStationInformation"]["address"]
+                if fuel_address.get("latitude") and fuel_address.get("longitude"):
+                    fuel["lat"] = fuel_address["latitude"]
+                    fuel["lon"] = fuel_address["longitude"]
+
+            apply_category(Categories.FUEL_STATION, fuel)
+            yield fuel
