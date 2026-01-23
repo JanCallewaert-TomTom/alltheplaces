@@ -12,6 +12,7 @@ from locations.categories import (
     map_payment,
 )
 from locations.dict_parser import DictParser
+from locations.hours import OpeningHours
 
 AVIA_SHARED_ATTRIBUTES = {
     "brand": "Avia",
@@ -50,7 +51,7 @@ SERVICES_MAPPING = {
     "SB-Waschbox": None,
     "SB-Öltheke": None,
     "Segafredo Kaffee": None,
-    "Shop": None,
+    "Shop": "shop",
     "Stromladesäule": Fuel.ELECTRIC,
     "Tankautomat": "automated",
     "TÜV / AU": None,
@@ -67,25 +68,26 @@ class AviaDESpider(scrapy.Spider):
     BRANDS_MAPPING = {
         "AVIA Automatentankstelle": AVIA_SHARED_ATTRIBUTES,
         "AVIA Tankstelle": AVIA_SHARED_ATTRIBUTES,
+        "AVIA Truck": AVIA_SHARED_ATTRIBUTES,
         "AVIA XPress": AVIA_SHARED_ATTRIBUTES,
-        "tankpoint Tankstelle": {"brand": "Tank Point"},
+        "tankpoint Tankstelle": {"brand": "tankpoint"},
     }
 
     def parse(self, response):
-        def dict_to_list(d):
-            return d.values() if d else []
+        def extract_labels(d):
+            return [v.get("label") for v in d.values()] if d else []
 
-        for poi in response.json():
+        for poi in response.json().values():
             poi.update(poi.pop("addressData"))
             poi.update(poi.pop("contactData"))
             poi.update(poi.pop("geoData"))
             item = DictParser.parse(poi)
             item.update(self.BRANDS_MAPPING.get(poi.get("facilityTitle"), {}))
 
-            payments = dict_to_list(poi.get("optionalData", {}).get("paymentMethods"))
-            fuel_cards = dict_to_list(poi.get("optionalData", {}).get("fuelCards", {}))
-            gas_types = dict_to_list(poi.get("optionalData", {}).get("gasTypes", {}))
-            services = dict_to_list(poi.get("optionalData", {}).get("services", {}))
+            payments = extract_labels(poi.get("optionalData", {}).get("paymentMethods"))
+            fuel_cards = extract_labels(poi.get("optionalData", {}).get("fuelCards", {}))
+            gas_types = extract_labels(poi.get("optionalData", {}).get("gasTypes", {}))
+            services = extract_labels(poi.get("optionalData", {}).get("services", {}))
 
             for payment in payments:
                 if not map_payment(item, payment, PaymentMethods):
@@ -100,7 +102,8 @@ class AviaDESpider(scrapy.Spider):
 
             apply_category(Categories.FUEL_STATION, item)
 
-            # TODO: Opening hours
+            item["opening_hours"] = self.parse_opening_hours(poi)
+
             yield item
 
     def parse_attribute(self, item, values: list, attribute_name, mapping: dict):
@@ -109,3 +112,13 @@ class AviaDESpider(scrapy.Spider):
                 apply_yes_no(tag, item, True)
             else:
                 self.crawler.stats.inc_value(f"atp/avia_de/{attribute_name}/fail/{value}")
+
+    def parse_opening_hours(self, poi: dict) -> OpeningHours | None:
+        try:
+            detail = poi["optionalData"]["openingHours"]["tanken"]["oeffnungszeit"]["detail"]
+            oh = OpeningHours()
+            for day, info in detail.items():
+                oh.add_range(day, info["detail"]["from"], info["detail"]["to"])
+            return oh
+        except (KeyError, TypeError, AttributeError):
+            return None
