@@ -14,7 +14,6 @@ class CharleysPhillySteaksSpider(SitemapSpider, StructuredDataSpider):
     sitemap_follow = ["locations"]
     sitemap_rules = [(r"/locations/([^/]+)/$", "parse")]
     wanted_types = ["Restaurant"]
-    requires_proxy = True
 
     def post_process_item(self, item: Feature, response: Response, ld_data: dict, **kwargs):
         if item.get("name"):
