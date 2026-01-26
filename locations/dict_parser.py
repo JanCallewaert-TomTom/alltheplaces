@@ -52,6 +52,7 @@ class DictParser:
         "name",
         "store-name",
         "display-name",
+        "displayName",
         "title",
         "business-name",
         "item-name",
@@ -73,6 +74,7 @@ class DictParser:
         "house-no",
         "street-number",
         "street-no",
+        "streetNr",
         "address-street-no",
     ]
 
