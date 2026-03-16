@@ -1,7 +1,8 @@
+import re
 from typing import Any, AsyncIterator
 
 import chompjs
-from scrapy import Spider
+from scrapy import Request, Spider
 from scrapy.http import JsonRequest, Response
 
 from locations.dict_parser import DictParser
@@ -14,12 +15,22 @@ class BenchmarxGBSpider(Spider):
     item_attributes = {"brand": "Benchmarx", "brand_wikidata": "Q102181127"}
 
     async def start(self) -> AsyncIterator[Any]:
-        yield JsonRequest(
-            url="https://www.benchmarxkitchens.co.uk/branches",
-            body="[]",
-            method="POST",
-            headers={"next-action": "c9ba5010b454e57b7be8e7636bed638268d6b777"},
-        )
+        yield Request(url="https://www.benchmarxkitchens.co.uk/branches", callback=self.parse_branches_page)
+
+    def parse_branches_page(self, response: Response, **kwargs: Any) -> Any:
+        chunk_url = response.xpath('//script[contains(@src, "/branches/page-")]/@src').get()
+        if chunk_url:
+            yield Request(url=response.urljoin(chunk_url), callback=self.parse_chunk)
+
+    def parse_chunk(self, response: Response, **kwargs: Any) -> Any:
+        action_ids = re.findall(r'\("([a-f0-9]{40})"\)', response.text)
+        if len(action_ids) >= 2:
+            yield JsonRequest(
+                url="https://www.benchmarxkitchens.co.uk/branches",
+                body="[]",
+                method="POST",
+                headers={"next-action": action_ids[1]},
+            )
 
     def parse(self, response: Response, **kwargs: Any) -> Any:
         for location in list(chompjs.parse_js_objects(response.text))[1]:
