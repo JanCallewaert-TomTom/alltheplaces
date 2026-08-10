@@ -12,7 +12,6 @@ class OlliesBargainOutletSpider(Spider):
     allowed_domains = ["ollies.us"]
     item_attributes = {"brand": "Ollie's Bargain Outlet", "brand_wikidata": "Q7088304"}
     custom_settings = {"ROBOTSTXT_OBEY": False}
-    requires_proxy = "US"
 
     async def start(self) -> AsyncIterator[FormRequest]:
         formdata = {
