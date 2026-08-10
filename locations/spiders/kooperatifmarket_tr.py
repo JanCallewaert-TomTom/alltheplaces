@@ -11,7 +11,6 @@ class KooperatifmarketTRSpider(Spider):
     name = "kooperatifmarket_tr"
     item_attributes = {"brand": "Türkiye Tarım Kredi Kooperatif Market", "brand_wikidata": "Q127328776"}
     start_urls = ["https://www.kooperatifmarket.com.tr/api/stores"]
-    requires_proxy = True
 
     def parse(self, response: Response, **kwargs: Any) -> Any:
         for poi in response.json():
