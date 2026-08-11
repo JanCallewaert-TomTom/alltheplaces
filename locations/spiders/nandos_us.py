@@ -13,7 +13,6 @@ from locations.structured_data_spider import StructuredDataSpider
 class NandosUSSpider(StructuredDataSpider):
     name = "nandos_us"
     item_attributes = NANDOS_SHARED_ATTRIBUTES
-    requires_proxy = True
     custom_settings = {
         "ROBOTSTXT_OBEY": False,
     }
