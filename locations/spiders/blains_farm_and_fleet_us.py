@@ -10,4 +10,3 @@ class BlainsFarmAndFleetUSSpider(SitemapSpider, StructuredDataSpider):
     sitemap_urls = ["https://www.farmandfleet.com/sitemap_stores.xml.gz"]
     sitemap_rules = [(r"\/stores\/[\w\-]+\/$", "parse_sd")]
     time_format = "%H:%M:%S"
-    requires_proxy = True
